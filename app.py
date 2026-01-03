@@ -60,15 +60,18 @@ def preprocess_image(img):
     return img_array
 
 # =========================
-# PREDICTION
+# PREDICTION (Top 3)
 # =========================
-def predict_part(img):
+def predict_part(img, top_k=3):
     img_array = preprocess_image(img)
     preds = model.predict(img_array)[0]   # shape: (num_classes,)
-    class_idx = int(np.argmax(preds))
-    confidence = float(preds[class_idx])
-    class_name = idx_to_class[class_idx]
-    return class_name, confidence
+    
+    # get indices of top_k predictions
+    top_indices = preds.argsort()[-top_k:][::-1]
+    top_classes = [idx_to_class[i] for i in top_indices]
+    top_confidences = [float(preds[i]) for i in top_indices]
+    
+    return list(zip(top_classes, top_confidences))
 
 # =========================
 # UI
@@ -95,17 +98,17 @@ if image:
     st.image(image, caption="Input Image", use_container_width=True)
 
     with st.spinner("Identifying LEGO part..."):
-        class_name, confidence = predict_part(image)
+        top_predictions = predict_part(image, top_k=3)
 
-    st.subheader("Prediction Result")
+    st.subheader("Prediction Results (Top 3)")
 
-    st.success(f"**Predicted Part:** {class_name}")
-    st.write(f"**Confidence:** {confidence:.2%}")
+    for i, (class_name, confidence) in enumerate(top_predictions, start=1):
+        st.write(f"{i}. **{class_name}** — {confidence:.2%}")
 
     # =========================
     # LOOK UP PART INFO
     # =========================
-    part_info = parts_df[parts_df["name"] == class_name]
+    part_info = parts_df[parts_df["name"] == top_predictions[0][0]]
 
     if not part_info.empty:
         st.subheader("LEGO Database Info")
